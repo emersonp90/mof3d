@@ -1,16 +1,17 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-BR">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>MOF Viewer — v31 (mobile-first)</title>
+<title>MOF Viewer — v32 (mobile tweaks)</title>
 <script src="https://3Dmol.org/build/3Dmol-min.js"></script>
 <style>
   :root { --border:#e5e7eb; --muted:#6b7280; --bg:#fafafa; --accent:#111827; --btn:#f3f4f6; }
   html, body { height:100%; margin:0; }
   body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; color:#111827; }
+
   .toolbar {
-    display:flex; gap:.5rem; align-items:center; justify-content:space-between;
+    display:flex; flex-wrap:wrap; gap:.5rem; align-items:center; justify-content:space-between;
     padding:.6rem .9rem; border-bottom:1px solid var(--border); background:var(--bg);
     position:sticky; top:0; z-index:20;
   }
@@ -19,21 +20,30 @@
   .toolbar select, .toolbar button, .sidebar button, .sidebar select {
     border:1px solid #d1d5db; background:white; padding:.5rem .7rem; border-radius:.6rem; font-size:1rem;
   }
+
   .layout { display:flex; height: calc(100vh - 56px); }
   .viewer { flex:1; min-width:0; position:relative; background:white; }
   .sidebar { width:420px; max-width:55vw; border-left:1px solid var(--border); padding:12px; overflow:auto; }
   .section { margin-bottom:12px; }
   .section h3 { margin:.2rem 0 .4rem; font-size:1rem; }
-  .kvs { display:grid; grid-template-columns:auto 1fr; column-gap:8px; row-gap:4px; font-size:.95rem; }
+
+  /* Key/values grid two columns (label/value + label/value) */
+  .kvs { display:grid; column-gap:10px; row-gap:6px; }
+  .kvs.kvs-2 { grid-template-columns:auto 1fr auto 1fr; }
+
   table { width:100%; border-collapse:collapse; }
   th, td { text-align:left; padding:8px 6px; border-bottom:1px solid var(--border); font-size:.95rem; }
   th { position:sticky; top:0; background:var(--bg); z-index:2; }
+
   .chips { display:flex; gap:.5rem; flex-wrap:wrap; align-items:center; }
-  .structs { display:flex; gap:.35rem; flex-wrap:wrap; }
-  .structs button { background:var(--btn); }
+  /* Structures one-line compact with scroll */
+  .structs { display:flex; gap:.3rem; flex-wrap:nowrap; overflow-x:auto; white-space:nowrap; -webkit-overflow-scrolling:touch; }
+  .structs button { background:var(--btn); padding:.35rem .55rem; font-size:.85rem; border-radius:.6rem; }
   .structs button.active { background:var(--accent); color:white; border-color:var(--accent); }
+  @media (max-width: 640px) { .structs button { font-size:.80rem; padding:.32rem .5rem; } }
+
   .legend {
-    position:absolute; left:12px; bottom:72px;
+    position:absolute; left:12px; bottom:12px;
     background: rgba(255,255,255,.92); border:1px solid var(--border); border-radius:.6rem;
     padding:.55rem .65rem; min-width:150px; max-height:40vh; overflow:auto;
     box-shadow: 0 4px 10px rgba(0,0,0,.06); font-size:.95rem;
@@ -43,44 +53,52 @@
   .swatch { width:14px; height:14px; border-radius:3px; border:1px solid rgba(0,0,0,.15); flex:0 0 14px; display:inline-block; vertical-align:middle; margin-right:6px; }
   .cite { font-style:italic; }
 
+  .hdr-controls { display:flex; gap:.5rem; align-items:center; width:100%; justify-content:flex-start; }
+  .hdr-toggles { display:flex; gap:.9rem; align-items:center; width:100%; order:2; margin-top:.25rem; justify-content:flex-start; }
+
   /* Mobile-first */
   @media (max-width: 640px) {
     .layout { display:block; height:auto; }
-    .viewer { height: 62dvh; } /* use dynamic viewport height for mobile URL bar */
+    .viewer { height: 62dvh; }
     .sidebar { width:auto; max-width:none; border-left:none; border-top:1px solid var(--border); padding:10px 12px; }
-    .toolbar .muted { display:none; }
+    
     .toolbar { padding:.55rem .75rem; }
-    .legend { left:12px; bottom: calc(64px + env(safe-area-inset-bottom)); } /* make room for bottom bar */
-    .section h3 { font-size:1.05rem; }
-    .structs button, .sidebar button, .sidebar select { font-size:1.05rem; padding:.65rem .85rem; border-radius:.75rem; }
-    select { min-height:44px; }
-    /* hide desktop toggles in header on mobile */
-    .hdr-toggles { display:none; }
-    .mobilebar { display:flex; }
+
+    /* Legend above bottom bar */
+    .legend { left:12px; bottom:12px; }
   }
 
-  /* Mobile bottom bar */
+  /* Mobile bottom bar (keep only Spin/Reset to simplify) */
   .mobilebar {
-    display:none;
     position:fixed; left:0; right:0; bottom:0;
     padding:.4rem .6rem calc(.4rem + env(safe-area-inset-bottom));
     background:rgba(255,255,255,.98); border-top:1px solid var(--border);
-    z-index:30; align-items:center; justify-content:space-between; gap:.4rem;
+    z-index:30; display:flex; align-items:center; justify-content:flex-end; gap:.4rem;
     backdrop-filter: blur(6px);
   }
-  .mbtn {
-    flex:1; text-align:center; padding:.55rem; border:1px solid #d1d5db; border-radius:.75rem; background:#fff; font-weight:600;
-    min-height:44px;
-  }
-  .mbtn.on { background:#111827; color:#fff; border-color:#111827; }
+  .mbtn { text-align:center; padding:.55rem; border:1px solid #d1d5db; border-radius:.75rem; background:#fff; font-weight:600; min-height:44px; }
   .mbtn.small { flex:0 0 96px; }
+
+  .footnote {
+    margin-top: 10px;
+    color: var(--muted);
+    /* Scale with viewport; stay one line on phones */
+    font-size: clamp(0.72rem, 2.8vw, 0.9rem);
+    white-space: nowrap;
+  }
+
+  .brandwrap { display:flex; flex-direction:column; gap:2px; }
+  .brand { font-weight:700; }
+  .hintline { color: var(--muted); font-size: 0.92rem; }
+  @media (max-width: 640px) {
+    .hintline { font-size: clamp(0.72rem, 2.8vw, 0.9rem); }
+  }
 </style>
 </head>
 <body>
   <div class="toolbar">
-    <div class="brand">MOF Viewer</div>
-    <div class="muted hdr-hint">drag to rotate • pinch/scroll to zoom • pan with two fingers</div>
-    <div class="hdr-controls" style="display:flex; gap:.5rem; align-items:center;">
+    <div class="brandwrap"><div class="brand">MOF Viewer</div><div class="hintline">drag to rotate • pinch/scroll to zoom • pan with two fingers</div></div>
+    <div class="hdr-controls">
       <label>Style
         <select id="styleSelect">
           <option value="balls">Balls</option>
@@ -90,11 +108,11 @@
       </label>
       <button id="btnReset">Reset</button>
       <button id="btnSpin">Spin</button>
-      <div class="hdr-toggles" style="display:flex; gap:.6rem; align-items:center;">
-        <label><input id="chkCellEdges" type="checkbox" checked/> Edges</label>
-        <label><input id="chkCellLabels" type="checkbox" checked/> Labels</label>
-        <label><input id="chkAxes" type="checkbox" checked/> Axes</label>
-      </div>
+    </div>
+    <div class="hdr-toggles">
+      <label><input id="chkCellEdges" type="checkbox" checked/> Edges</label>
+      <label><input id="chkCellLabels" type="checkbox" checked/> Labels</label>
+      <label><input id="chkAxes" type="checkbox" checked/> Axes</label>
     </div>
   </div>
 
@@ -124,14 +142,15 @@
 
       <div class="section">
         <h3>Cell parameters</h3>
-        <div class="kvs">
+        <div class="kvs kvs-2">
           <div>a (Å)</div><div id="ua" class="muted">—</div>
-          <div>b (Å)</div><div id="ub" class="muted">—</div>
-          <div>c (Å)</div><div id="uc" class="muted">—</div>
           <div>α (°)</div><div id="ualpha" class="muted">—</div>
+          <div>b (Å)</div><div id="ub" class="muted">—</div>
           <div>β (°)</div><div id="ubeta" class="muted">—</div>
+          <div>c (Å)</div><div id="uc" class="muted">—</div>
           <div>γ (°)</div><div id="ugamma" class="muted">—</div>
           <div>Volume (Å³)</div><div id="uvol" class="muted">—</div>
+          <div></div><div></div>
         </div>
       </div>
 
@@ -145,23 +164,14 @@
           <thead><tr><th>Elem</th><th>Color</th><th>Count</th><th>Show</th></tr></thead>
           <tbody></tbody>
         </table>
+        <div class="footnote">Built with 3Dmol.js (BSD 3‑Clause). Source: <a href="https://3dmol.org" target="_blank" rel="noopener">https://3dmol.org</a>.</div>
       </div>
     </aside>
   </div>
-
-  <!-- Mobile bottom bar -->
-  <div class="mobilebar" id="mobileBar">
-    <button id="mEdges" class="mbtn on">Edges</button>
-    <button id="mLabels" class="mbtn on">Labels</button>
-    <button id="mAxes" class="mbtn on">Axes</button>
-    <button id="mSpin" class="mbtn small">Spin</button>
-    <button id="mReset" class="mbtn small">Reset</button>
-  </div>
-
 <script>
   const STRUCTS = [{"label": "\u03b1\u2011CALF\u201120 (1)", "format": "xyz", "text": "44\nLattice=\"8.9375 0.0 0.0 0.0 9.7320995331 0.0 -4.1352135087 0.0 8.6004041346\" Properties=species:S:1:pos:R:3  volume=748.07 pbc=\"T T T\"\nZn -2.3103270638 9.1628690314 8.0618468277\nZn 7.1126135551 0.5692305017 0.5385573069\nZn 5.0450068007 4.2968192649 4.8387593742\nZn -0.2427203094 5.4352802682 3.7616447604\nO 5.3223654945 9.4385794112 1.4805595718\nO -0.5200790032 0.2935201219 7.1198445628\nO 1.5475277512 4.5725296446 2.8196424955\nO 3.2547587401 5.1595698885 5.7807616391\nO 3.2164993511 8.9657940159 0.9294456748\nO 1.5857871402 0.7663055172 7.6709584598\nO 3.6533938945 4.0997442493 3.3707563925\nO 1.1488925968 5.6323552838 5.2296477421\nN 5.0310985876 2.8006062826 6.2108678498\nN -0.2288120963 6.9314932505 2.3895362848\nN -2.2964188506 7.6666560492 6.6897383521\nN 7.0987053419 2.0654434839 1.9106657825\nN -3.336771819 1.0401667981 7.4195686469\nN 8.1390583103 8.691932735 1.1808354877\nN 6.0714515559 5.9062165646 5.481037555\nN -1.2691650646 3.8258829685 3.1193665796\nN 4.3423343049 1.4288668534 7.8022866309\nN 0.4599521864 8.3032326797 0.7981175037\nN -1.607654568 6.29491662 5.098319571\nN 6.4099410593 3.4371829131 3.5020845636\nC 4.3646653125 9.4278741017 0.6923325328\nC 0.4376211788 0.3042254314 7.9080716018\nC 2.5052279331 4.5618243351 3.6078695345\nC 2.2970585582 5.170275198 4.9925346001\nC 4.0515013099 2.4737050593 7.0669520774\nC 0.7507851814 7.2583944738 1.5334520572\nC -1.316821573 7.3397548259 5.8336541245\nC 6.1191080643 2.3923447072 2.7667500101\nC -2.9741106653 1.8812148397 6.4718041113\nC 7.7763971566 7.8508846934 2.1286000233\nC 5.7087904022 6.7472646063 6.4288020906\nC -0.9065039109 2.9848349268 2.171602044\nH 3.2159386418 2.9196298599 7.1039338152\nH 1.5863478495 6.8124696732 1.4964703194\nH -0.4812589049 7.7856796265 5.7966723867\nH 5.2835453962 1.9464199066 2.8037317479\nH -2.1473675966 1.8490989113 6.0460841066\nH 6.9496540879 7.8830006218 2.554320028\nH 4.8820473336 6.7151486778 6.8545220953\nH -0.0797608423 3.0169508553 1.7458820393\n", "filename": "alfacalf20ovito1x1x1.xyz", "citation": "Inorg. Chem. 2024, 63, 41, 19277\u201319286"}, {"label": "\u03b1\u2011CALF\u201120 (2)", "format": "xyz", "text": "44\nLattice=\"9.054400444 0.0 0.0 0.0 9.6610002518 0.0 -4.1806851266 0.0 8.3279323706\" Properties=species:S:1:pos:R:3  volume=728.48 pbc=\"T T T\"\nZn -0.2335935064 0.5575363245 3.6375575802\nZn 5.1073088238 9.1034639273 4.6903747904\nZn 7.1976513871 5.3880364504 0.5264086051\nZn -2.3239360697 4.2729638014 7.8015237655\nN -1.2608707985 8.5905614239 3.0671774921\nN 6.1345861159 1.0704388279 5.2607548785\nN 8.2249286792 3.760061298 1.0967886932\nN -3.3512133618 5.9009389538 7.2311436774\nN 6.5055038212 8.2360027147 3.4144522719\nN -1.6317885038 1.4249975371 4.9134800987\nN 0.4585540595 3.4055025888 0.7495139134\nN 4.4151612579 6.255497663 7.5784184572\nN 7.2117871499 6.8457847784 1.8812799225\nN -2.3380718325 2.8152154734 6.4466524481\nN -0.2477292692 2.0152846525 2.2826862628\nN 5.1214445866 7.6457155993 6.0452461078\nO 1.1594392377 0.7352021192 5.0817043325\nO 3.7142760797 8.9257981326 3.2462280381\nO 1.6239335164 5.5657022451 7.4101942234\nO 3.249781801 4.0952980067 0.9177381472\nO 3.2999993926 0.2965927077 5.6063640719\nO 1.5737159248 9.3644075441 2.7215682987\nO -0.5166266385 5.1270928336 6.885534484\nO 5.3903419559 4.5339074182 1.4423978866\nC -0.8872917012 7.7452239019 2.1552688975\nC 5.7610070186 1.9157763499 6.1726634731\nC 7.8513495819 2.914723776 2.0086972878\nC -2.9776342645 6.7462764758 6.3192350828\nC 6.2046997376 7.1935807875 2.6915877422\nC -1.3309844202 2.4674194643 5.6363446284\nC 0.7593581431 2.3630806616 1.4723784431\nC 4.1143571743 7.2979195902 6.8555539275\nC 2.3206809519 0.2975588078 4.8426926735\nC 2.5530343655 9.363441444 3.4852396971\nC 0.4626918022 5.1280589337 7.6492058824\nC 4.4110235152 4.5329413181 0.6787264882\nH -0.028220796 7.7722747026 1.7372066925\nH 4.9019361134 1.8887255492 6.5907256781\nH 6.9922786767 2.9417745767 2.4267594928\nH -2.1185633593 6.7192256751 5.9011728778\nH 5.3623520322 6.7346832755 2.7390569567\nH -0.4886367148 2.9263169763 5.5888754139\nH 1.6017058485 1.9041831496 1.4249092286\nH 3.2720094689 7.7568171022 6.903023142\n", "filename": "alfacalf20ovito1x1x1paesani.xyz", "citation": "ACS Materials Lett. 2023, 5, 11, 2942\u20132947"}, {"label": "\u03b1\u2011CALF\u201120 (3)", "format": "xyz", "text": "44\nLattice=\"8.9138 0.0 0.0 5.9355568738e-16 9.6935 0.0 -4.1417089502 8.3430954966e-16 8.5314076173\" Properties=species:S:1:pos:R:3 volume=737.17 pbc=\"T T T\"\nZn -0.2412979083 0.559411885 3.7264335331\nZn 7.0842434333 5.406161885 0.5392702755\nZn 5.0133889582 9.134088115 4.8049740841\nZn -2.3121523834 4.287338115 7.9921373418\nN -1.2508463663 8.6194602 3.1421174254\nN 8.0937918913 3.7727102 1.1235863832\nN 6.0229374162 1.0740398 5.3892901918\nN -3.3217008414 5.9207898 7.4078212341\nN 6.3938469704 8.26370875 3.4978771231\nN 0.4490985545 3.41695875 0.7678266856\nN -1.6217559206 1.42979125 5.0335304942\nN 4.3229924953 6.27654125 7.7635809317\nN 7.0939389882 6.8688141 1.9272449807\nN -0.2509934632 2.0220641 2.3384588279\nN -2.3218479383 2.8246859 6.6041626365\nN 5.0230845131 7.6714359 6.1929487894\nO 1.1256044386 0.73767535 5.2058649281\nO 1.5756321361 5.58442535 7.5912464978\nO 3.6464866112 8.95582465 3.3255426892\nO 3.1964589137 4.10907465 0.9401611194\nO 3.2312906747 0.29759045 5.7433436079\nO -0.5300541 5.14434045 7.053767818\nO 1.5408003751 9.39590955 2.7880640093\nO 5.3021451498 4.54915955 1.4776397993\nC -0.8802275763 7.77127895 2.2079282914\nC 7.7231731012 2.92452895 2.0577755173\nC 5.6523186261 1.92222105 6.3234793259\nC -2.9510820514 6.76897105 6.4736321\nH -0.033194327 7.79842075 1.779651629\nH 6.8761398519 2.95167075 2.4860521797\nH 4.8052853768 1.89507925 6.7517559883\nH -2.1040488021 6.74182925 6.0453554376\nC 6.0999657673 7.2177801 2.7573509419\nC 0.7429797576 2.3710301 1.5083528667\nC -1.3278747175 2.4757199 5.7740566754\nC 4.0291112922 7.3224699 7.0230547505\nH 5.2705505063 6.75733885 2.8059799653\nH 1.5723950186 1.91058885 1.4597238433\nH -0.4984594565 2.93616115 5.725427652\nH 3.1996960312 7.78291115 7.071683774\nC 2.2695584855 0.2985598 4.9610135294\nC 0.4316780893 5.1453098 7.8360978965\nC 2.5025325644 9.3949402 3.5703940878\nC 4.3404129606 4.5481902 0.6953097208\n", "filename": "alfacalf20ovito1x1x1science.xyz", "citation": "Science 2021, 374, 6574, 1464\u20131469"}, {"label": "\u03b2\u2011CALF\u201120", "format": "xyz", "text": "44\nLattice=\"9.2788381577 0.0 0.0 0.0 7.9339060783 0.0 -3.4157591933 0.0 9.4403206624\" Properties=species:S:1:pos:R:3  volume=694.972131 pbc=\"T T T\"\nZn 0.166886579 7.614963054 4.39069314\nZn 5.696192386 0.318943024 5.049627522\nZn 7.404071982 3.648010015 0.329467191\nZn -1.540993018 4.285896064 9.110853471\nC 4.733059823 4.61266668 0.3955433\nC 1.130019141 3.321239399 9.044777363\nC 2.837898738 0.64571364 4.324617032\nC 3.025180227 7.288192438 5.115703631\nC -0.846087779 1.646055428 2.579206057\nC 6.709166743 6.28785065 6.861114606\nC 8.41704634 5.613008467 2.140954274\nC -2.553967376 2.320897611 7.299366388\nC 6.405490271 2.119124099 2.464842236\nC -0.542411307 5.81478198 6.975478426\nC 1.16546829 6.086077138 2.255318095\nC 4.697610674 1.847828941 7.185002567\nO 5.889239179 4.868906457 0.79565562\nO -0.026160214 3.064999621 8.644665042\nO 1.681719382 0.901953418 3.924504711\nO 4.181359582 7.03195266 5.515815951\nO 3.725372316 5.309153352 0.588084587\nO 2.137706648 2.624752726 8.852236076\nO 3.845586245 1.342200313 4.132075744\nO 2.01749272 6.591705766 5.308244918\nN 7.84971003 0.938645354 3.52156813\nN -1.986631065 6.995260725 5.918752532\nN -0.278751469 4.905598393 1.198592201\nN 6.141830433 3.028307685 8.241728461\nN 7.571152234 2.40316349 1.883768787\nN -1.70807327 5.530742588 7.556551876\nN -1.93673e-04 6.370116529 2.836391545\nN 5.863272638 1.563789549 6.603929118\nN 6.524045262 1.256380838 3.450187978\nN -0.660966298 6.677525241 5.990132685\nN 1.046913299 5.223333877 1.269972354\nN 4.816165665 2.710572202 8.170348309\nH 5.660998825 2.576393982 2.091831566\nH 0.20208014 5.357512096 7.348489096\nH 1.909959736 6.543347021 2.628328765\nH 3.953119228 1.390559057 6.811991897\nH 0.057834218 1.725912573 2.298051595\nH 5.805244747 6.207993506 7.142269068\nH 7.513124343 5.692865612 2.422108737\nH -1.650045379 2.241040466 7.018211926\n", "filename": "betacalf20ovito1x1x1.xyz", "citation": "ACS Materials Lett. 2023, 5, 11, 2942\u20132947"}, {"label": "\u03b3\u2011CALF\u201120", "format": "xyz", "text": "44\nLattice=\"9.3919 0.0 0.0 4.6085908346e-16 7.5264 0.0 -3.504328379 8.3962570644e-16 9.5874325788\"  Properties=species:S:1:pos:R:3 volume=677.71 pbc=\"T T T\"\nZn 0.184923172 3.955198464 4.5172147338\nZn 7.4548126386 0.191998464 0.2765015556\nZn 5.7026484491 3.571201536 5.070217845\nZn -1.5672410175 7.334401536 9.3109310232\nO 3.9710999911 2.4423168 4.323932093\nO 3.6686358194 6.2055168 0.4697841964\nO 1.9164716299 5.0840832 5.2635004857\nO 2.2189358016 1.3208832 9.1176483824\nN -1.5809320767 6.10165248 7.6373487922\nN 5.7163395082 2.33845248 6.7438000759\nN 7.4685036977 1.42474752 1.9500837865\nN 0.1712321128 5.18794752 2.8436325029\nO 1.7981328 2.74487808 3.9864544662\nO 5.8416030105 6.50807808 0.8072618231\nO 4.089438821 4.78152192 5.6009781125\nO 0.0459686105 1.01832192 8.7801707556\nN 7.0472325265 4.89667584 5.9470844286\nN -2.911825095 1.13347584 8.4340644395\nN -1.1596609055 2.62972416 3.6403481502\nN 8.799396716 6.39292416 1.1533681392\nN -0.9852957532 4.88162304 5.8895598331\nN 5.1207031847 1.11842304 8.491589035\nN 6.8728673742 2.64477696 3.6978727456\nN 0.7668684363 6.40797696 1.0958435438\nC 2.9050926262 3.0895872 4.4370637975\nC 4.7346431843 6.8527872 0.3566524919\nC 2.9824789948 4.4368128 5.1503687813\nC 1.1529284367 0.6736128 9.2307800868\nC 6.7488486432 5.6335104 6.9921145797\nC -2.6134412117 1.8703104 7.3890342885\nC -0.8612770222 1.8928896 2.5953179991\nC 8.5010128327 5.6560896 2.1983982903\nH 5.8560031051 5.814670848 7.26154061\nH -1.7205956736 2.051470848 7.1196082581\nH 0.0315685159 1.711729152 2.3258919687\nH 7.6081672946 5.474929152 2.4678243206\nC -0.5692084781 5.58759936 6.9250025516\nC 4.7046159097 1.82439936 7.4561463165\nC 6.4567800992 1.93880064 2.6624300271\nC 1.1829557114 5.70200064 2.1312862623\nH 0.3471170071 5.717166336 7.1407773093\nH 3.7882904245 1.953966336 7.2403715589\nH 5.540454614 1.809233664 2.4466552695\nH 2.0992811966 5.572433664 2.3470610199\n", "filename": "gammacalf20ovito1x1x1.xyz", "citation": "Inorg. Chem. 2024, 63, 41, 19277\u201319286"}, {"label": "\u03c4\u2011CALF\u201120", "format": "xyz", "text": "44\nLattice=\"9.3052 0.0 0.0 4.8678485619e-16 7.9498 0.0 -3.4541724908 8.2646345442e-16 9.4302991153\" Properties=species:S:1:pos:R:3  volume=697.60 pbc=\"T T T\"\nZn 5.6485977129 4.24757814 5.0443612998\nZn -1.5246564491 0.27267814 9.1010873732\nZn 0.2024297963 3.70222186 4.3859378155\nZn 7.3756839583 7.67712186 0.3292117421\nO 1.9140755054 2.67272276 5.2536196371\nO 2.2098657584 6.64762276 8.8918290358\nO 3.9369520038 5.27707724 4.1766794782\nO 3.6411617508 1.30217724 0.5384700795\nO 4.0821811585 3.02410392 5.5940534352\nO 0.0417601053 6.99900392 8.5513952377\nO 1.7688463507 4.92569608 3.8362456801\nO 5.8092674039 0.95079608 0.8789038775\nN -2.8597221052 6.8686272 8.239252337\nN 6.983663369 2.8937272 5.9061963359\nN 8.7107496144 1.0811728 1.1910467783\nN -1.1326358598 5.0560728 3.5241027794\nN 5.0838524741 6.84954768 8.3212959393\nN -0.9599112103 2.87464768 5.8241527336\nN 0.7671750351 1.10025232 1.109003176\nN 6.8109387195 5.07515232 3.6061463817\nN 5.6961925907 5.55214032 6.6266711883\nN -1.5722513269 1.57724032 7.5187774846\nN 0.1548349185 2.39765968 2.803627927\nN 7.4232788361 6.37255968 1.9115216307\nC 2.9662253147 3.31745154 5.1197093897\nC 1.1577159491 7.29235154 9.0257392832\nC 2.8848021945 4.63234846 4.3105897256\nC 4.6933115601 0.65744846 0.404559832\nC -2.5457453852 6.10226648 7.2245521522\nC 6.669686649 2.12736648 6.9208965207\nC 8.3967728944 1.84753352 2.2057469631\nC -0.8186591398 5.82243352 2.5094025946\nC 4.6857770869 6.0656974 7.3452599809\nC -0.5618358231 2.0907974 6.800188692\nC 1.1652504223 1.8841026 2.0850391344\nC 6.4128633323 5.8590026 2.6301104233\nH 3.816424162 5.7874544 7.1858879258\nH 0.3075171018 1.8125544 6.9595607471\nH 2.0346033472 2.1623456 2.2444111894\nH 5.5435104074 6.1372456 2.4707383682\nH -1.6548227807 5.8987516 6.9312698497\nH 5.7787640445 1.9238516 7.2141788232\nH 7.5058502899 2.0510484 2.4990292656\nH 0.0722634647 6.0259484 2.2161202921\n", "filename": "taucalf20ovito1x1x1.xyz", "citation": "Inorg. Chem. 2024, 63, 41, 19277\u201319286"}];
 
-  // Explicit CPK/Jmol-like color map (hex) for table/legend.
+  // CPK/Jmol-like color map (hex) for table/legend.
   const CPK = {
     H:"#FFFFFF", He:"#D9FFFF", Li:"#CC80FF", Be:"#C2FF00", B:"#FFB5B5", C:"#909090",
     N:"#3050F8", O:"#FF0D0D", F:"#90E050", Ne:"#B3E3F5", Na:"#AB5CF2", Mg:"#8AFF00",
@@ -258,7 +268,7 @@
 
   function replicateXYZ(baseText, nx, ny, nz) {
     const p = parseXYZ(baseText);
-    if (!p || !p.lat) return baseText; // fallback
+    if (!p || !p.lat) return baseText;
     const A = p.lat.a, B = p.lat.b, C = p.lat.c;
     const newLat = {a: scale(A,nx), b: scale(B,ny), c: scale(C,nz)};
     const atomsOut = [];
@@ -400,7 +410,7 @@
     const parsed = parseXYZ(activeXYZ);
     setUnitCellInfoFromLat(parsed ? parsed.lat : null);
     const cite = STRUCTS[currentIndex].citation;
-    document.getElementById("fileMeta").innerHTML = '<span class="cite">'+cite+'</span>' + "  •  " + rep.ax + "×" + rep.by + "×" + rep.cz;
+    document.getElementById("fileMeta").innerHTML = 'Reference: ' + '<span class="cite">'+cite+'</span>';
     document.getElementById("atomCount").textContent = model.selectedAtoms({}).length + " atoms";
     renderStyles();
     viewer.zoomTo(); viewer.render();
@@ -427,19 +437,13 @@
     document.getElementById("chkAxes").checked = axesOn;
     document.getElementById("chkCellEdges").checked = cellEdgesOn;
     document.getElementById("chkCellLabels").checked = cellLabelsOn;
-    const mEdges = document.getElementById("mEdges");
-    const mLabels = document.getElementById("mLabels");
-    const mAxes = document.getElementById("mAxes");
-    mEdges.classList.toggle("on", cellEdgesOn);
-    mLabels.classList.toggle("on", cellLabelsOn);
-    mAxes.classList.toggle("on", axesOn);
   }
 
   function init() {
     viewer = $3Dmol.createViewer(document.getElementById("viewer"), {backgroundColor: "white"});
     initButtons(); loadStructure(0);
 
-    // Sync initial style dropdown to Balls
+    // Default style = Balls
     document.getElementById("styleSelect").value = "balls";
 
     // Toolbar handlers
@@ -458,16 +462,9 @@
     document.getElementById("btnSpin").addEventListener("click", function(){ viewer.spin(spinning = !spinning); });
 
     // Desktop toggles
-    document.getElementById("chkAxes").addEventListener("change", e => { axesOn = e.target.checked; syncToggleUI(); renderStyles(); });
-    document.getElementById("chkCellEdges").addEventListener("change", e => { cellEdgesOn = e.target.checked; syncToggleUI(); renderStyles(); });
-    document.getElementById("chkCellLabels").addEventListener("change", e => { cellLabelsOn = e.target.checked; syncToggleUI(); renderStyles(); });
-
-    // Mobile bottom bar
-    document.getElementById("mSpin").addEventListener("click", function(){ viewer.spin(spinning = !spinning); });
-    document.getElementById("mReset").addEventListener("click", function(){ document.getElementById("btnReset").click(); });
-    document.getElementById("mEdges").addEventListener("click", function(){ cellEdgesOn = !cellEdgesOn; syncToggleUI(); renderStyles(); });
-    document.getElementById("mLabels").addEventListener("click", function(){ cellLabelsOn = !cellLabelsOn; syncToggleUI(); renderStyles(); });
-    document.getElementById("mAxes").addEventListener("click", function(){ axesOn = !axesOn; syncToggleUI(); renderStyles(); });
+    document.getElementById("chkAxes").addEventListener("change", e => { axesOn = e.target.checked; renderStyles(); });
+    document.getElementById("chkCellEdges").addEventListener("change", e => { cellEdgesOn = e.target.checked; renderStyles(); });
+    document.getElementById("chkCellLabels").addEventListener("change", e => { cellLabelsOn = e.target.checked; renderStyles(); });
 
     // Elements table
     tbody().addEventListener("input", function(e){ const t=e.target; if(t && t.matches('input[type="checkbox"][data-sym]')) { elementState[t.getAttribute("data-sym")] = t.checked; renderStyles(); } });
@@ -484,9 +481,7 @@
     document.getElementById("repA").addEventListener("change", updateRepFromUI);
     document.getElementById("repB").addEventListener("change", updateRepFromUI);
     document.getElementById("repC").addEventListener("change", updateRepFromUI);
-
-    // Initial toggle UI sync
-    syncToggleUI();
+document.getElementById("mReset").addEventListener("click", function(){ document.getElementById("btnReset").click(); });
   }
   window.addEventListener("DOMContentLoaded", init);
 </script>
