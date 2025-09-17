@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>QR para MOF Viewer</title>
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" defer></script>
+  <style>
+    :root { --border:#e5e7eb; --muted:#6b7280; --bg:#fafafa; --accent:#111827; }
+    html, body { height:100%; margin:0; }
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; background:var(--bg); color:#111827; display:flex; align-items:center; justify-content:center; }
+    .card { background:#fff; border:1px solid var(--border); border-radius:16px; padding:20px; width:min(560px, 92vw); box-shadow:0 6px 20px rgba(0,0,0,.08); }
+    h1 { margin:0 0 8px; font-size:1.25rem; }
+    p { margin:.35rem 0; color:var(--muted); }
+    .qr { display:flex; align-items:center; justify-content:center; padding:14px; border:1px dashed var(--border); border-radius:12px; background:#fff; }
+    .row { display:flex; gap:12px; align-items:center; margin-top:12px; flex-wrap:wrap; }
+    .btn { border:1px solid #d1d5db; background:#111827; color:#fff; padding:.65rem .9rem; border-radius:.7rem; font-size:1rem; text-decoration:none; display:inline-block; }
+    .btn.secondary { background:#fff; color:#111827; }
+    code { background:#f3f4f6; padding:2px 6px; border-radius:6px; }
+    .url { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; word-break: break-all; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Abra no celular via QR Code</h1>
+    <p>Este QR aponta para o visualizador: <span id="viewerUrl" class="url"></span></p>
+    <div class="qr"><div id="qrcode"></div></div>
+    <div class="row">
+      <a id="openViewer" class="btn">Abrir visualizador</a>
+      <a id="downloadPng" class="btn secondary">Baixar QR (PNG)</a>
+    </div>
+  </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+  const viewerUrl = new URL('viewer.html', window.location.href).href;
+  document.getElementById('viewerUrl').textContent = viewerUrl;
+  const qrelem = document.getElementById('qrcode');
+  const qr = new QRCode(qrelem, { text: viewerUrl, width: 256, height: 256, correctLevel: QRCode.CorrectLevel.H });
+  document.getElementById('openViewer').href = viewerUrl;
+
+  // allow download of QR as PNG
+  setTimeout(function(){
+    try {
+      const img = qrelem.querySelector('img');
+      if (img && img.src) {
+        document.getElementById('downloadPng').href = img.src;
+        document.getElementById('downloadPng').setAttribute('download', 'mof_viewer_qr.png');
+      }
+    } catch(e){}
+  }, 300);
+});
+</script>
+</body>
+</html>
