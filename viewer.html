@@ -334,21 +334,43 @@
       addLabel("β="+beta.toFixed(2)+"°",  scale(unit(add(unit(A),unit(C))), s));
       addLabel("γ="+gamma.toFixed(2)+"°", scale(unit(add(unit(A),unit(B))), s));
     }
+    
     if (axesOn) {
-      const bbox = model.getExtent ? model.getExtent() : null;
-      let s = 8;
-      if (bbox) { const dx=bbox[1].x-bbox[0].x, dy=bbox[1].y-bbox[0].y, dz=bbox[1].z-bbox[0].z; s = 0.25*Math.max(dx,dy,dz); }
-      const O={x:0,y:0,z:0};
-      viewer.addSphere({center:O, radius:0.35, color:"#bbbbbb"});
-      viewer.addArrow({start:O, end:{x:s,y:0,z:0}, radius:0.12, radiusRatio:1.8, mid:false, color:"#d62728"});
-      viewer.addSphere({center:{x:s,y:0,z:0}, radius:0.18, color:"#d62728"}); addLabel("a", [s*1.05,0,0], "#d62728");
-      viewer.addArrow({start:O, end:{x:0,y:s,z:0}, radius:0.12, radiusRatio:1.8, mid:false, color:"#2ca02c"});
-      viewer.addSphere({center:{x:0,y:s,z:0}, radius:0.18, color:"#2ca02c"}); addLabel("b", [0,s*1.06,0], "#2ca02c");
-      viewer.addArrow({start:O, end:{x:0,y:0,z:s*0.9}, radius:0.12, radiusRatio:1.8, mid:false, color:"#1f77b4"});
-      viewer.addSphere({center:{x:0,y:0,z:s*0.9}, radius:0.18, color:"#1f77b4"}); addLabel("c", [0,0,s*0.95], "#1f77b4");
+      // --- Axes aligned to lattice and placed OUTSIDE the unit cell ---
+      if (lat) {
+        const A = lat.a, B = lat.b, C = lat.c;
+        const norm = v => Math.hypot(v[0], v[1], v[2]);
+        const unit = v => { const n = norm(v) || 1; return [v[0]/n, v[1]/n, v[2]/n]; };
+        const add = (u,v) => [u[0]+v[0], u[1]+v[1], u[2]+v[2]];
+        const scale = (v,s) => [v[0]*s, v[1]*s, v[2]*s];
+
+        // Put origin slightly outside the 0,0,0 corner
+        const O = scale(add(add(A,B),C), -0.18); // margin = 18% of (A+B+C)
+
+        // Axis lengths proportional to edge lengths
+        const aL = norm(A), bL = norm(B), cL = norm(C);
+        const la = scale(unit(A), 0.75 * aL);
+        const lb = scale(unit(B), 0.75 * bL);
+        const lc = scale(unit(C), 0.75 * cL);
+
+        // Helpers to convert array->3Dmol coords
+        const P = v => ({x:v[0], y:v[1], z:v[2]});
+        const addLabel = (text, v, color) => viewer.addLabel(text, {position:P(v), backgroundOpacity:0, fontColor:color, fontSize:14});
+
+        // Draw arrows exactly along a,b,c
+        viewer.addArrow({ start:P(O), end:P(add(O, la)), radius:0.12, radiusRatio:1.8, mid:false, color:"#d62728" }); // a (red)
+        viewer.addArrow({ start:P(O), end:P(add(O, lb)), radius:0.12, radiusRatio:1.8, mid:false, color:"#2ca02c" }); // b (green)
+        viewer.addArrow({ start:P(O), end:P(add(O, lc)), radius:0.12, radiusRatio:1.8, mid:false, color:"#1f77b4" }); // c (blue)
+
+        // Labels at arrow tips
+        addLabel("a", add(O, la), "#d62728");
+        addLabel("b", add(O, lb), "#2ca02c");
+        addLabel("c", add(O, lc), "#1f77b4");
+      }
     }
     viewer.render();
   }
+
 
   // ---- Elements table & color reference ----
   function analyzeCounts() {
